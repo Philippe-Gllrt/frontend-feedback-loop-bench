@@ -1,0 +1,353 @@
+{
+  "//": [
+    "List of the conditions compared by the bench: one entry per browser tool, plus a control without a browser.",
+    "Adding a tool = adding an entry. Fields:",
+    "  id             short identifier, used in folder names (runs/<id>-<n>/).",
+    "  name           display name used in reports.",
+    "  homepage       official README the install steps were copied from (2026-11-04).",
+    "  skill          which skill variant the agent gets: 'full' (with the browser steps) or 'control' (without them).",
+    "  prerequisites  commands to run ONCE, by hand, on the machine (global installs, browser extensions). The launcher only prints them.",
+    "  setup          commands the launcher runs inside each fresh trial workspace, before the agent starts (e.g. project-level skill install).",
+    "  mcpServers     MCP servers given to Claude Code for this condition only (--mcp-config + --strict-mcp-config).",
+    "  claudeArgs     extra command-line flags for `claude` (e.g. --chrome).",
+    "  needsRealChrome true when the tool drives the user's own Chrome through an extension: it may not run unattended.",
+    "  platforms      optional list of supported OSes (Node's process.platform). The launcher skips the condition elsewhere.",
+    "  extraContext   OPTIONAL extra instructions or configuration for this tool. Empty in the first, 'raw' test:",
+    "                 every tool is installed exactly as its README says, with the same skill for all.",
+    "Setup note: install commands were made project-level where the tool allows it, so that one tool's skill",
+    "never leaks into another condition. The launcher warns if browser skills are found in ~/.claude/skills.",
+    "  signature      how the bench recognises this tool in the session log: `bash` = command names the agent runs",
+    "                 through the Bash tool, `tools` = prefixes of tool names. An attempt FAILS if the tool was called",
+    "                 and not a single call succeeded (not installed, extension not connected...). An agent that never",
+    "                 calls its tool is not a failure: that is its behaviour, and the trial counts.",
+    "  healthCheck    commands run by the launcher, in a temporary folder, once the dev server is up and BEFORE the agent",
+    "                 starts. If one fails, the attempt fails without spending any token. Commands copied from each README",
+    "                 (2026-11-06). Empty when the tool cannot be checked by a script (MCP servers are checked in the",
+    "                 session's init event; Claude in Chrome goes through a browser extension).",
+    "                 Playwriter: `playwriter session new` opens a session through the extension, so it fails if the",
+    "                 extension is not connected, and a session is ready when the agent starts (decided 2026-11-16).",
+    "  forbidden      OPTIONAL list of {pattern, reason}: a Bash command matching `pattern` (a regular expression) means the agent",
+    "                 left the condition (e.g. Playwriter without its extension). The launcher stops the session at once and the",
+    "                 attempt FAILS (decided 2026-11-16, after the first Playwriter trial ran headless).",
+    "  variantOf      OPTIONAL id of the condition this one is a variant of (same tool, different environment). Its id must",
+    "                 not start with the other id followed by '-', or the failed attempts of the two would be counted together.",
+    "  strict-control (17/11): the control as D82 meant it. The first controls (Opus and Sonnet) built their own loop",
+    "                 with the Chrome or Edge installed on the machine, driven headless from a script; that condition stays, as",
+    "                 'control' (the homemade loop). This one forbids any browser, in commands and in the files the agent writes."
+  ],
+  "tools": [
+    {
+      "id": "control",
+      "name": "Control (homemade loop)",
+      "homepage": null,
+      "skill": "control",
+      "prerequisites": [],
+      "setup": [],
+      "mcpServers": {},
+      "claudeArgs": [],
+      "needsRealChrome": false,
+      "signature": {
+        "bash": [],
+        "tools": []
+      },
+      "healthCheck": [],
+      "extraContext": ""
+    },
+    {
+      "id": "strict-control",
+      "name": "Strict control (no browser at all)",
+      "homepage": null,
+      "skill": "control",
+      "prerequisites": [],
+      "setup": [],
+      "mcpServers": {},
+      "claudeArgs": [],
+      "needsRealChrome": false,
+      "signature": {
+        "bash": [],
+        "tools": []
+      },
+      "healthCheck": [],
+      "extraContext": "This condition has no browser. Do not launch, install or drive any browser, in any mode: no Chrome, Edge or Chromium, with or without a window (headless), and no browser library (Playwright, Puppeteer, Selenium, WebDriver), even one already installed on the machine. Build the page from ./mockup/design.json and the captures, by reading the code you write. The bench stops the session at the first command or file that uses a browser, and the trial is lost.",
+      "forbidden": [
+        {
+          "pattern": "chrome\\.exe|msedge|chromium|google-chrome|Google[\\\\/]Chrome[\\\\/]Application|Microsoft[\\\\/]Edge[\\\\/]Application|start\\s+chrome",
+          "reason": "an installed browser (Chrome, Edge, Chromium)"
+        },
+        {
+          "pattern": "headless",
+          "reason": "a headless browser"
+        },
+        {
+          "pattern": "playwright|puppeteer|selenium|webdriver",
+          "reason": "a browser automation library"
+        },
+        {
+          "pattern": "remote-debugging-port|chrome-remote-interface",
+          "reason": "a browser driven through the DevTools protocol"
+        },
+        {
+          "pattern": "wkhtmlto(image|pdf)|phantomjs",
+          "reason": "a page rendering engine"
+        }
+      ]
+    },
+    {
+      "id": "chrome-devtools-mcp",
+      "name": "Chrome DevTools MCP",
+      "homepage": "https://github.com/ChromeDevTools/chrome-devtools-mcp",
+      "skill": "full",
+      "prerequisites": [
+        "Chrome stable and Node LTS installed"
+      ],
+      "setup": [],
+      "mcpServers": {
+        "chrome-devtools": {
+          "command": "npx",
+          "args": [
+            "-y",
+            "chrome-devtools-mcp@latest"
+          ]
+        }
+      },
+      "claudeArgs": [],
+      "needsRealChrome": false,
+      "signature": {
+        "bash": [],
+        "tools": [
+          "mcp__chrome-devtools__"
+        ]
+      },
+      "healthCheck": [],
+      "extraContext": ""
+    },
+    {
+      "id": "playwright-mcp",
+      "name": "Playwright MCP",
+      "homepage": "https://github.com/microsoft/playwright-mcp",
+      "skill": "full",
+      "prerequisites": [],
+      "setup": [],
+      "mcpServers": {
+        "playwright": {
+          "command": "npx",
+          "args": [
+            "@playwright/mcp@latest"
+          ]
+        }
+      },
+      "claudeArgs": [],
+      "needsRealChrome": false,
+      "signature": {
+        "bash": [],
+        "tools": [
+          "mcp__playwright__"
+        ]
+      },
+      "healthCheck": [],
+      "extraContext": ""
+    },
+    {
+      "id": "playwright-cli",
+      "name": "Playwright CLI",
+      "homepage": "https://github.com/microsoft/playwright-cli",
+      "skill": "full",
+      "prerequisites": [
+        "npm install -g @playwright/cli@latest"
+      ],
+      "setup": [
+        "playwright-cli install --skills"
+      ],
+      "mcpServers": {},
+      "claudeArgs": [],
+      "needsRealChrome": false,
+      "signature": {
+        "bash": [
+          "playwright-cli"
+        ],
+        "tools": []
+      },
+      "healthCheck": [
+        "playwright-cli open http://localhost:5173",
+        "playwright-cli close"
+      ],
+      "extraContext": ""
+    },
+    {
+      "id": "agent-browser",
+      "name": "agent-browser",
+      "homepage": "https://github.com/vercel-labs/agent-browser",
+      "skill": "full",
+      "prerequisites": [
+        "npm install -g agent-browser",
+        "agent-browser install"
+      ],
+      "setup": [
+        "npx skills add vercel-labs/agent-browser -y"
+      ],
+      "mcpServers": {},
+      "claudeArgs": [],
+      "needsRealChrome": false,
+      "signature": {
+        "bash": [
+          "agent-browser"
+        ],
+        "tools": []
+      },
+      "healthCheck": [
+        "agent-browser open http://localhost:5173",
+        "agent-browser close"
+      ],
+      "extraContext": ""
+    },
+    {
+      "id": "dev-browser",
+      "name": "dev-browser",
+      "homepage": "https://github.com/sawyerhood/dev-browser",
+      "skill": "full",
+      "prerequisites": [
+        "npm install -g dev-browser"
+      ],
+      "setup": [],
+      "mcpServers": {
+        "dev-browser": {
+          "command": "dev-browser",
+          "args": [
+            "mcp",
+            "--headless"
+          ]
+        }
+      },
+      "claudeArgs": [],
+      "needsRealChrome": false,
+      "platforms": [
+        "darwin",
+        "linux"
+      ],
+      "signature": {
+        "bash": [],
+        "tools": [
+          "mcp__dev-browser__"
+        ]
+      },
+      "healthCheck": [],
+      "extraContext": ""
+    },
+    {
+      "id": "playwriter",
+      "name": "Playwriter",
+      "homepage": "https://github.com/remorses/playwriter",
+      "skill": "full",
+      "prerequisites": [
+        "Create a Chrome profile for the bench, with no personal account in it (only the sign-in the extension itself needs), and keep it the only one open during the trials",
+        "Install the Playwriter extension from the Chrome Web Store, in that profile",
+        "npm i -g playwriter"
+      ],
+      "setup": [
+        "npx -y skills add https://playwriter.dev -y"
+      ],
+      "mcpServers": {},
+      "claudeArgs": [],
+      "needsRealChrome": true,
+      "signature": {
+        "bash": [
+          "playwriter"
+        ],
+        "tools": []
+      },
+      "healthCheck": [
+        "playwriter session new"
+      ],
+      "forbidden": [
+        {
+          "pattern": "playwriter[^\n]*--browser[ =]+[\"']?(headless|cloud)",
+          "reason": "Playwriter without its extension (headless or cloud browser)"
+        },
+        {
+          "pattern": "playwriter[^\n]*--direct",
+          "reason": "Playwriter through a direct CDP connection, without its extension"
+        },
+        {
+          "pattern": "PLAYWRITER_DIRECT",
+          "reason": "Playwriter through a direct CDP connection, without its extension"
+        },
+        {
+          "pattern": "playwriter\\s+browser\\s+start",
+          "reason": "Playwriter starting its own Chrome instead of the extension"
+        }
+      ],
+      "extraContext": ""
+    },
+    {
+      "id": "variant-playwriter-scale1",
+      "name": "Playwriter (variant: Chrome at scale 1, tabs never throttled)",
+      "homepage": "https://github.com/remorses/playwriter",
+      "skill": "full",
+      "prerequisites": [
+        "Same as Playwriter, plus: close every Chrome window, then start the bench profile with",
+        "chrome.exe --profile-directory=\"<bench profile>\" --force-device-scale-factor=1 --disable-background-timer-throttling --disable-renderer-backgrounding --disable-backgrounding-occluded-windows",
+        "Variant decided 2026-11-16 after the raw Playwriter condition failed 3/3: in the raw test the agent left the extension because of Windows' 125% scale (devicePixelRatio 1.25) and screenshots hanging in a background tab. Report it as a variant, never in place of the raw result."
+      ],
+      "setup": [
+        "npx -y skills add https://playwriter.dev -y"
+      ],
+      "mcpServers": {},
+      "claudeArgs": [],
+      "needsRealChrome": true,
+      "signature": {
+        "bash": [
+          "playwriter"
+        ],
+        "tools": []
+      },
+      "healthCheck": [
+        "playwriter session new"
+      ],
+      "forbidden": [
+        {
+          "pattern": "playwriter[^\n]*--browser[ =]+[\"']?(headless|cloud)",
+          "reason": "Playwriter without its extension (headless or cloud browser)"
+        },
+        {
+          "pattern": "playwriter[^\n]*--direct",
+          "reason": "Playwriter through a direct CDP connection, without its extension"
+        },
+        {
+          "pattern": "PLAYWRITER_DIRECT",
+          "reason": "Playwriter through a direct CDP connection, without its extension"
+        },
+        {
+          "pattern": "playwriter\\s+browser\\s+start",
+          "reason": "Playwriter starting its own Chrome instead of the extension"
+        }
+      ],
+      "extraContext": "",
+      "variantOf": "playwriter"
+    },
+    {
+      "id": "claude-in-chrome",
+      "name": "Claude in Chrome",
+      "homepage": "https://code.claude.com/docs/en/chrome",
+      "skill": "full",
+      "prerequisites": [
+        "Create a Chrome profile for the bench, with no personal account in it (only the sign-in the extension itself needs), and keep it the only one open during the trials",
+        "Install the Claude in Chrome extension (v1.0.36+) from the Chrome Web Store, in that profile",
+        "Sign in to Claude Code with /login (API-key auth disables the Chrome integration)"
+      ],
+      "setup": [],
+      "mcpServers": {},
+      "claudeArgs": [
+        "--chrome"
+      ],
+      "needsRealChrome": true,
+      "signature": {
+        "bash": [],
+        "tools": [
+          "mcp__claude-in-chrome__"
+        ]
+      },
+      "healthCheck": [],
+      "extraContext": ""
+    }
+  ]
+}

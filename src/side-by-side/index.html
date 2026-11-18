@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Côte à côte</title>
+<style>
+  :root {
+    --bar: #16181d; --bar-text: #e6e8ee; --muted: #8b90a0; --line: #2a2d36; --accent: #6ea8ff;
+    --bezel: #0d0e11; --bezel-edge: #3a3d46; --stand: #2b2e36;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; font: 13px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--bar-text); }
+  body { display: flex; flex-direction: column; background: #1f2229; }
+  body.bg-light { background: #eceef2; }
+  body.bg-gradient { background: radial-gradient(1200px 700px at 20% 10%, #3b4a7a 0%, transparent 60%), radial-gradient(1000px 600px at 90% 90%, #6b3b6f 0%, transparent 55%), #14161c; }
+  body.bg-light .label { color: #2a2d36; }
+  body.bg-light .label small { color: #6b7080; }
+
+  header { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; padding: 10px 16px; background: var(--bar); border-bottom: 1px solid var(--line); }
+  header .group { display: flex; align-items: center; gap: 6px; }
+  header label { color: var(--muted); }
+  select, button, input[type=number] { font: inherit; color: var(--bar-text); background: #22252d; border: 1px solid var(--line); border-radius: 6px; padding: 5px 8px; }
+  select { max-width: 320px; }
+  button { cursor: pointer; }
+  button:hover, select:hover { border-color: #444955; }
+  input[type=checkbox] { accent-color: var(--accent); }
+  .spacer { flex: 1; }
+  body.capture header { display: none; }
+  .hint { position: fixed; bottom: 12px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,.7); padding: 6px 12px; border-radius: 6px; opacity: 0; transition: opacity .3s; pointer-events: none; }
+  .hint.show { opacity: 1; }
+
+  #stage { flex: 1; display: flex; justify-content: center; align-items: center; gap: var(--gap, 48px); overflow: hidden; padding: 24px; min-height: 0; }
+  .slot { display: flex; flex-direction: column; align-items: center; }
+  .label { font-weight: 600; font-size: 15px; margin-bottom: 12px; text-align: center; outline: none; border-radius: 4px; padding: 2px 6px; }
+  .label:focus { background: rgba(255,255,255,.08); }
+  .label small { display: block; font-weight: 400; font-size: 12px; color: var(--muted); }
+  .device-box { position: relative; }
+  .device { position: absolute; top: 0; left: 0; transform-origin: 0 0; }
+  .screen { background: #fff; overflow: hidden; position: relative; }
+  .screen iframe { border: 0; display: block; background: #fff; }
+  .empty { position: absolute; inset: 0; display: grid; place-items: center; color: #999; font-size: 40px; background: #f4f5f7; }
+
+  /* Monitor */
+  .monitor .bezel { padding: 28px; background: var(--bezel); border-radius: 26px; border: 2px solid var(--bezel-edge); box-shadow: 0 40px 80px rgba(0,0,0,.45); }
+  .monitor .neck { width: 18%; height: 150px; margin: 0 auto; background: linear-gradient(#24272e, var(--stand)); clip-path: polygon(12% 0, 88% 0, 100% 100%, 0 100%); }
+  .monitor .foot { width: 34%; height: 22px; margin: 0 auto; background: var(--stand); border-radius: 10px 10px 4px 4px; }
+  /* Phone and tablet */
+  .handheld .bezel { padding: 18px; background: var(--bezel); border: 2px solid var(--bezel-edge); box-shadow: 0 30px 60px rgba(0,0,0,.45); }
+  .handheld.phone .bezel { border-radius: 56px; padding: 14px; }
+  .handheld.phone .screen { border-radius: 42px; }
+  .handheld.tablet .bezel { border-radius: 40px; padding: 26px; }
+  .handheld.tablet .screen { border-radius: 14px; }
+</style>
+</head>
+<body>
+<header>
+  <div class="group"><label for="left">Gauche</label><select id="left"></select></div>
+  <div class="group"><label for="right">Droite</label><select id="right"></select></div>
+  <div class="group"><label for="device">Écran</label><select id="device"></select></div>
+  <div class="group"><input type="checkbox" id="sync" checked><label for="sync">Défilement lié</label></div>
+  <div class="group"><button id="top" title="Remonter les deux écrans">↑ Haut</button></div>
+  <div class="spacer"></div>
+  <div class="group"><label for="bg">Fond</label>
+    <select id="bg"><option value="dark">Sombre</option><option value="light">Clair</option><option value="gradient">Dégradé</option></select></div>
+  <div class="group"><button id="capture" title="Masque la barre (Échap pour revenir)">Mode capture</button></div>
+</header>
+<main id="stage">
+  <div class="slot" id="slot-left"></div>
+  <div class="slot" id="slot-right"></div>
+</main>
+<div class="hint" id="hint">Échap pour revenir</div>
+
+<script>
+const DEVICES = [
+  { id: "desktop", name: "Ordinateur", w: 1920, h: 1080, type: "monitor" },
+  { id: "laptop", name: "Portable", w: 1440, h: 900, type: "monitor" },
+  { id: "1280", name: "Petit portable", w: 1280, h: 800, type: "monitor" },
+  { id: "tablet", name: "Tablette", w: 768, h: 1024, type: "tablet" },
+  { id: "mobile", name: "Mobile", w: 390, h: 844, type: "phone" },
+];
+const $ = (id) => document.getElementById(id);
+const state = { left: "", right: "", device: "desktop", sync: true, bg: "dark" };
+let sources = [];
+const frames = { left: null, right: null }; // iframes
+
+function readHash() {
+  const p = new URLSearchParams(location.hash.slice(1));
+  for (const k of ["left", "right", "device", "bg"]) if (p.get(k)) state[k] = p.get(k);
+  if (p.get("sync")) state.sync = p.get("sync") === "1";
+}
+function writeHash() {
+  const p = new URLSearchParams({ left: state.left, right: state.right, device: state.device, sync: state.sync ? "1" : "0", bg: state.bg });
+  history.replaceState(null, "", "#" + p.toString());
+}
+
+function fillSelects() {
+  for (const side of ["left", "right"]) {
+    const sel = $(side);
+    sel.innerHTML = '<option value="">— rien —</option>';
+    const groups = new Map();
+    for (const s of sources) {
+      const g = s.kind === "figma" ? "Maquettes Figma" : `Essais — ${s.mockup}`;
+      if (!groups.has(g)) { const og = document.createElement("optgroup"); og.label = g; groups.set(g, og); sel.append(og); }
+      groups.get(g).append(new Option(s.label, s.id));
+    }
+    sel.value = state[side];
+  }
+  $("device").innerHTML = DEVICES.map((d) => `<option value="${d.id}">${d.name} — ${d.w} × ${d.h}</option>`).join("");
+  $("device").value = state.device;
+  $("sync").checked = state.sync;
+  $("bg").value = state.bg;
+}
+
+const device = () => DEVICES.find((d) => d.id === state.device) ?? DEVICES[0];
+
+/** URL of a source for the current device, and the width the content is laid out at. */
+function srcFor(source, dev) {
+  if (source.kind === "trial") return { url: `http://localhost:${source.port}/`, note: "" };
+  // Figma: the frame closest to the device width (desktop capture on a large screen, mobile on a phone).
+  const frame = [...source.frames].sort((a, b) => Math.abs(a.width - dev.w) - Math.abs(b.width - dev.w))[0];
+  const note = frame.width !== dev.w ? ` · maquette à ${frame.width} px` : "";
+  return { url: `/figma/${encodeURIComponent(source.mockup)}/${frame.breakpoint}`, note };
+}
+
+function render() {
+  const dev = device();
+  for (const side of ["left", "right"]) {
+    const slot = $("slot-" + side);
+    const source = sources.find((s) => s.id === state[side]);
+    const { url, note } = source ? srcFor(source, dev) : { url: "", note: "" };
+    const kind = dev.type === "monitor" ? "monitor" : `handheld ${dev.type}`;
+    slot.innerHTML = `
+      <div class="label" contenteditable="true" spellcheck="false">${source ? source.label : "—"}<small>${dev.w} × ${dev.h}${note}</small></div>
+      <div class="device-box"><div class="device ${kind}">
+        <div class="bezel"><div class="screen" style="width:${dev.w}px;height:${dev.h}px">
+          ${url ? `<iframe src="${url}" width="${dev.w}" height="${dev.h}" title="${source.label}"></iframe>` : '<div class="empty">Choisis une version</div>'}
+        </div></div>
+        ${dev.type === "monitor" ? '<div class="neck"></div><div class="foot"></div>' : ""}
+      </div></div>`;
+    frames[side] = slot.querySelector("iframe");
+  }
+  fit();
+  writeHash();
+}
+
+/** Scales both devices so they fit side by side in the stage. */
+function fit() {
+  const stage = $("stage");
+  const cs = getComputedStyle(stage);
+  const gap = parseFloat(cs.columnGap) || 48;
+  const availW = (stage.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight) - gap) / 2;
+  const labelH = Math.max(...[...document.querySelectorAll(".label")].map((l) => l.offsetHeight + 12), 0);
+  const availH = stage.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom) - labelH;
+  for (const box of document.querySelectorAll(".device-box")) {
+    const d = box.firstElementChild;
+    d.style.transform = "none";
+    const w = d.offsetWidth, h = d.offsetHeight;
+    const scale = Math.min(availW / w, availH / h, 1);
+    d.style.transform = `scale(${scale})`;
+    box.style.width = w * scale + "px";
+    box.style.height = h * scale + "px";
+  }
+}
+
+// Scroll sync: a page reports its scroll, the other one follows (same coordinates: same width).
+window.addEventListener("message", (e) => {
+  if (!state.sync || !e.data || e.data.type !== "sbs-scroll") return;
+  const from = frames.left?.contentWindow === e.source ? "left" : frames.right?.contentWindow === e.source ? "right" : null;
+  if (!from) return;
+  const other = frames[from === "left" ? "right" : "left"];
+  other?.contentWindow?.postMessage({ type: "sbs-scroll-to", x: e.data.x, y: e.data.y }, "*");
+});
+
+for (const side of ["left", "right"]) $(side).addEventListener("change", (e) => { state[side] = e.target.value; render(); });
+$("device").addEventListener("change", (e) => { state.device = e.target.value; render(); });
+$("sync").addEventListener("change", (e) => { state.sync = e.target.checked; writeHash(); });
+$("bg").addEventListener("change", (e) => { state.bg = e.target.value; applyBg(); writeHash(); });
+$("top").addEventListener("click", () => { for (const f of Object.values(frames)) f?.contentWindow?.postMessage({ type: "sbs-scroll-to", x: 0, y: 0 }, "*"); });
+$("capture").addEventListener("click", () => {
+  document.body.classList.add("capture"); fit();
+  $("hint").classList.add("show"); setTimeout(() => $("hint").classList.remove("show"), 1500);
+});
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && document.body.classList.contains("capture")) { document.body.classList.remove("capture"); fit(); } });
+window.addEventListener("resize", fit);
+window.addEventListener("hashchange", () => { readHash(); fillSelects(); applyBg(); render(); });
+function applyBg() { document.body.classList.remove("bg-light", "bg-gradient"); if (state.bg !== "dark") document.body.classList.add("bg-" + state.bg); }
+
+(async () => {
+  readHash();
+  sources = await (await fetch("/api/sources")).json();
+  if (!state.left && !state.right) {
+    state.left = sources.find((s) => s.kind === "figma")?.id ?? "";
+    state.right = sources.find((s) => s.kind === "trial")?.id ?? "";
+  }
+  fillSelects(); applyBg(); render();
+})();
+</script>
+</body>
+</html>

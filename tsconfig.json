@@ -1,0 +1,19 @@
+// Type-checking settings for the bench scripts in src/.
+// Node runs the .ts files directly by stripping types, which only works with
+// "erasable" TypeScript syntax (no enums, no namespaces, no parameter
+// properties): `erasableSyntaxOnly` makes tsc reject anything Node cannot strip.
+{
+  "compilerOptions": {
+    "target": "ES2023",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "allowImportingTsExtensions": true,
+    "erasableSyntaxOnly": true,
+    "verbatimModuleSyntax": true,
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "types": ["node"]
+  },
+  "include": ["src"]
+}

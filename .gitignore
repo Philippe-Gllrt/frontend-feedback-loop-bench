@@ -1,0 +1,29 @@
+# Private working notes of the author (French, not part of the public tool).
+md/
+
+# Dependencies
+node_modules/
+
+# Mockup exports: each user brings their own design (and its license).
+mockups/*
+!mockups/.gitkeep
+
+# Trial outputs: workspaces, transcripts, measurements, reports.
+runs/*
+!runs/.gitkeep
+
+# Secrets (Figma personal access token, etc.)
+.env
+.env.*
+
+# Local Claude Code settings of the person running the bench
+.claude/settings.local.json
+
+# Machine settings of the person running the bench (override config/bench.json)
+config/bench.local.json
+
+# Build output and OS noise
+dist/
+*.log
+.DS_Store
+Thumbs.db
